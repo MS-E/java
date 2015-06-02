@@ -1,0 +1,789 @@
+/*
+ * Copyright (c) 2009-2013, Peter Abeles. All Rights Reserved.
+ *
+ * This file is part of Efficient Java Matrix Library (EJML).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import java.io.*; 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
+import java.util.Scanner;
+//package org.ejml.example;
+import org.ejml.data.DenseMatrix64F;
+import org.ejml.factory.DecompositionFactory;
+import org.ejml.factory.SingularValueDecomposition;
+import org.ejml.ops.CommonOps;
+import org.ejml.ops.NormOps;
+import org.ejml.ops.SingularOps;
+/* cPCA original End */
+
+//output to txt file
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+
+/**
+ * <p>
+ * The following is a simple example of how to perform basic principle component analysis in EJML.
+ * </p>
+ *
+ * <p>
+ * Principal Component Analysis (PCA) is typically used to develop a linear model for a set of data
+ * (e.g. face images) which can then be used to test for membership.  PCA works by converting the
+ * set of data to a new basis that is a subspace of the original set.  The subspace is selected
+ * to maximize information.
+ * </p>
+ * <p>
+ * PCA is typically derived as an eigenvalue problem.  However in this implementation {@link org.ejml.factory.SingularValueDecomposition SVD}
+ * is used instead because it will produce a more numerically stable solution.  Computation using EVD requires explicitly
+ * computing the variance of each sample set. The variance is computed by squaring the residual, which can
+ * cause loss of precision.
+ * </p>
+ *
+ * <p>
+ * Usage:<br>
+ * 1) call setup()<br>
+ * 2) For each sample (e.g. an image ) call addSample()<br>
+ * 3) After all the samples have been added call computeBasis()<br>
+ * 4) Call  sampleToEigenSpace() , eigenToSampleSpace() , errorMembership() , response()
+ * </p>
+ *
+ * @author Peter Abeles
+ */
+public class PrincipleComponentAnalysis_61 {
+
+    // principle component subspace is stored in the rows
+    private DenseMatrix64F V_t;
+
+    // how many principle components are used
+    private int numComponents;
+
+    // where the data is stored
+    private DenseMatrix64F A = new DenseMatrix64F(1,1);
+    private int sampleIndex;
+
+    // mean values of each element across all the samples
+    double mean[];
+
+    public PrincipleComponentAnalysis_61() {
+    }
+	
+	public static void main(String[] args) throws FileNotFoundException {
+		
+		PrincipleComponentAnalysis_61 cPCA = new PrincipleComponentAnalysis_61();
+		
+		// Dim vars
+		int x = 0;
+		double y = 0.0;
+		double a [] = new double[61];
+		double b [] = new double[15];
+
+		try {
+		// Macbeth 24 File
+				//Dim vars
+				String []  macbeth24 = new String[26];//24+2 Sample Macbeth24
+				double [][] vars_mc24 = new double[macbeth24.length][];
+					// total
+					vars_mc24[0] = new double[1526];//25*61+1 Sample Macbeth24
+				for (int i = 1; i < vars_mc24.length; ++i) {
+					// lambda + chip
+					vars_mc24[i] = new double[61];
+				}
+				//FileInput
+				File mc24 = new File("data/macbeth 400_700_5_24.txt");
+				Scanner sMac24 = new Scanner(mc24);
+				x=0;
+				while (sMac24.hasNext()){
+					vars_mc24[0][x]=sMac24.nextDouble();
+					x++;
+				}
+				sMac24.close();
+				
+		// Munsell 1269 File
+				//Dim vars
+	/**/		String []  munsell1269 = new String[406];//1269+2, sb+2
+				double [][] vars_mu1269 = new double[munsell1269.length][];
+					// total
+	/**/			vars_mu1269[0] = new double[24705];//1270*61, (sb+1)*61
+				for (int i = 1; i < vars_mu1269.length; ++i) {
+					// lambda + chip
+					vars_mu1269[i] = new double[61];
+				}
+				//FileInput
+				//File mu1269 = new File("data/munsell 400_700_5_1269.txt");
+	/**/		File mu1269 = new File("data/r404 400_700_5_404.txt");
+				Scanner sMun1269 = new Scanner(mu1269);
+				x=0;
+				while (sMun1269.hasNext()){
+					vars_mu1269[0][x]=sMun1269.nextDouble();
+					x++;
+				}
+				sMun1269.close();		
+				
+				//test data input
+				/*
+				for (int i=0; i < 1270; i++){
+					System.out.println(vars_mu1269[0][i]);
+				}
+				*/
+			
+		
+		// addSample 
+		// Dataset: 1. Macbeth 24(26) + 
+		// Dataset: 2. Munsell 1269(1271) = 1297 
+		
+		// sampleToEigenSpace - u
+				String []  sampleToEigenSpace = new String[munsell1269.length*15]; //24*'15'=168 Sample Macbeth24 
+				double [][] vars_u = new double[sampleToEigenSpace.length][];
+					vars_u[0] = new double[munsell1269.length]; //24 Sample Macbeth24
+				for (int i = 1; i < vars_u.length; ++i) {
+					vars_u[i] = new double[15];
+				}
+		// eigenToSampleSpace - es
+				String []  eigenToSampleSpace = new String[munsell1269.length*61]; //24*'61'=1464 Sample Macbeth24
+				double [][] vars_es = new double[eigenToSampleSpace.length][];
+					vars_es[0] = new double[munsell1269.length]; //24 Sample Macbeth24
+				for (int i = 1; i < vars_es.length; ++i) {
+					vars_es[i] = new double[61];
+				}
+		// error - e
+				String []  error = new String[munsell1269.length]; //24 Sample Macbeth24
+				double [][] vars_e = new double[error.length][];
+					vars_e[0] = new double[munsell1269.length]; //24 Sample Macbeth24
+				/*for (int i = 1; i < vars_e.length; ++i) {
+					vars_e[i] = new double[61]; // spetrun data total number
+				}*/
+		// response - w
+				String []  response = new String[munsell1269.length]; //24 Sample Macbeth24
+				double [][] vars_w = new double[response.length][];
+					vars_w[0] = new double[munsell1269.length]; //24 Sample Macbeth24
+				/*for (int i = 1; i < vars_w.length; ++i) {
+					vars_w[i] = new double[61];
+				}*/
+		
+		// Macbeth 24 : 2D Array
+		/*		x = 0;
+				for (int j=1; j <= 25; j++){  
+					for (int i=0; i < 61; i++){
+					x = i * 25;
+					vars_mc24[j][i] = vars_mc24[0][x+j-1];
+					}
+				}
+		
+		*/
+		// Munsell 1269 : 2D Array	
+				x = 0;
+				for (int j=1; j < munsell1269.length; j++){  
+					for (int i=0; i < 61; i++){
+	/**/			x = i * 405; // 1269+1, sb+1
+					vars_mu1269[j][i] = vars_mu1269[0][x+j-1];
+					}
+				}
+		
+		
+		// PCA 1. setup		
+	/**/		cPCA.setup(404,61);//[SpectrumNumber][SpectrumLength], (1269, 61),
+		
+		// PCA 2. addSample
+				System.out.println("--------------- addSample");
+				
+				// Macbeth 24
+				/*
+				for (int j=2; j <= 25; j++){  
+					for (int i=0; i < 61; i++){
+						a[i] = vars_mc24[j][i];						
+					}
+					cPCA.addSample(a);
+				}
+				*/
+				
+				// test
+				/*	
+					for (int i=0; i < 61; i++){
+						//System.out.println(a[i]);
+					}
+					System.out.println("----vars_mc24----");
+					for (int i=0; i < 61; i++){
+						//System.out.println(vars_mc24[1][i]);
+					}
+				*/
+				
+				//Munsell 1269
+				for (int j=2; j < munsell1269.length; j++){  
+					for (int i=0; i < 61; i++){
+						a[i] = vars_mu1269[j][i];
+						//System.out.println(a[i]);						
+					}
+					cPCA.addSample(a); //value is a vector
+				}
+				
+				// print dataset
+				/*
+				double data = 0;
+				BufferedWriter fd = null;
+				try {
+					File file = new File("c://java/musell 1269 400 700 5 default Data.txt");
+					fd = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")); // 指點編碼格式，以免讀取時中文字符異常
+								
+					for (int j=2; j < munsell1269.length; j++){ //j=1:nothing, j=2:No.1 spctrum, 1269+2 = lastone
+						//System.out.println("Default Macbeth 1 ------------");
+						for (int i=0; i < 61; i++){
+							//System.out.println(vars_mu1269[j][i]); // 0: total, 1: lambda, 2: Macbeth 1
+							//output text
+								data = vars_mu1269[j][i];
+								String data2 = String.valueOf(data);
+								fd.append(data2);
+								fd.append(" ");
+						}
+						
+						fd.newLine();
+					}
+					fd.flush(); // clear flash
+					System.out.println("Dataset File output finished!");
+					
+				} catch (Exception dd) {
+					dd.printStackTrace();
+				} finally {
+					if (fd != null) {
+						try {
+							fd.close();
+						} catch (IOException dd) {
+							dd.printStackTrace();
+						}
+					}
+				}
+				*/
+				
+		
+		// PCA 3. computeBasis set
+	/**/		cPCA.computeBasis(14);
+		
+		// PCA 4. sampleToEigenSpace - u
+				System.out.println("--------------- Sample2EigenSpace");
+				
+				// Processing Sample Macbeth24
+				/*
+				for (int m = 0; m < vars_u.length; ++m) {
+					// Macbeth 24
+					for (int j=2; j <= 25; j++){  
+						for (int i=0; i < 61; i++){
+							a[i] = vars_mc24[j][i];
+						}
+						b = cPCA.sampleToEigenSpace(a);
+					}
+					for (int j=1; j <= 25; j++){ 
+						for(int i = 0 ;  i< b.length; i++){ // basis 3
+							vars_u[j][i] = b[i];
+						}
+					}
+					// another spetrum data
+				}
+				*/
+				
+				
+				//for (int m = 0; m < vars_u.length; ++m) {
+					// Munsell 1269
+					for (int j=2; j < munsell1269.length; j++){   // Macbeth 24 : j=25
+						//sample2eigenspace
+						for (int i=0; i < 61; i++){
+							a[i] = vars_mu1269[j][i]; // Note. Sample set change
+							
+							//output test
+							//System.out.println(a[i]);
+						}
+						b = cPCA.sampleToEigenSpace(a);
+						
+						//input vars u
+						for(int i = 0 ;  i< b.length; i++){ 
+							vars_u[j][i] = b[i];
+							
+							//output test
+							//System.out.println(vars_u[j][i]);
+							//System.out.println(b[i]);
+						}
+					}
+				//}
+				
+				
+				// test sampleToEigenSpace
+					/*
+					for (int j=1; j <= 25; j++){ // basis num = EigenSpace num
+						for(int i = 0 ;  i< b.length; i++){ // basis 3
+							System.out.println(vars_u[j][i]); // 1-25, total:24 
+							// output text
+						}
+					}
+					*/
+				
+				
+		// PCA 5. eigenToSampleSpace - es
+				System.out.println("--------------- Eigen2SampleSpace");
+				
+				// Processing
+				
+				//for (int m = 0; m < vars_es.length; ++m) {
+					for (int j=1; j < munsell1269.length; j++){   // Macbeth 24 : j=25 ,, // j=1:lambda, j=2 spectrum
+						//step 1.
+						for(int i = 0 ;  i< b.length; i++){ // basis 3
+							b[i] = vars_u[j][i] ;
+							
+							//output test
+							//System.out.println(b[i]);
+						}
+						//step 2.
+						a = cPCA.eigenToSampleSpace(b);
+						
+						//step 3.input vars es
+						for (int i=0; i < 61; i++){
+							vars_es[j][i] = a[i];
+							
+							//output test
+							//System.out.println(vars_es[j][i]);
+							//System.out.println(a[i]);
+						}
+					}
+					
+					for (int j=1; j < 1271; j++){  // Macbeth 24 : j=25 					
+						
+					}
+					
+					// another spetrum data
+					
+				//}
+				
+				
+				// print PCA
+				double es = 0;
+				BufferedWriter fes = null;
+				try {
+	/**/			File file = new File("c://java/r404 400_700_5_404 pca14.txt");
+					fes = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")); // 指點編碼格式，以免讀取時中文字符異常
+					
+					for (int i=0; i < 61; i++){
+					es = vars_mu1269[1][i];
+					String es2 = String.valueOf(es);
+					fes.append(es2);
+					fes.append(" ");
+					
+						//System.out.println("Default Macbeth 1 ------------");
+						for (int j=2; j < munsell1269.length; j++){
+						//System.out.println(vars_mu1269[j][i]); // 0: total, 1: lambda, 2: Macbeth 1
+						// output text - default
+						/*
+							es = vars_mu1269[j][i];
+							es2 = String.valueOf(es);
+							fes.append(es2);
+							fes.append(" ");
+						*/
+						}						
+						
+						//System.out.println("PCA Macbeth 1 ------------");
+						for (int j=2; j < munsell1269.length; j++){
+						//System.out.println(vars_es[j][i]); 
+						// output text - pca
+						
+							es = vars_es[j][i];
+							es2 = String.valueOf(es);
+							fes.append(es2);
+							fes.append(" ");
+						
+						}
+						fes.newLine();
+					}
+					//last one
+					/*
+					es = vars_mu1269[1][60]; // 0-60 = 61, 1 = lambda, 60 SpectralLength 
+					String es2 = String.valueOf(es);
+					fes.append(es2);
+					fes.append(" ");
+					for (int j=2; j < munsell1269.length; j++){
+						es = vars_mu1269[j][60]; // Chang: munsell, or another 
+						es2 = String.valueOf(es);
+						fes.append(es2);
+						fes.append(" ");
+					}
+					*/
+					
+					fes.flush(); // clear flash
+					System.out.println("Component File output finished!");
+					
+				} catch (Exception es2s) {
+					es2s.printStackTrace();
+				} finally {
+					if (fes != null) {
+						try {
+							fes.close();
+						} catch (IOException es2s) {
+							es2s.printStackTrace();
+						}
+					}
+				}
+				
+					//output test
+					/*
+						BufferedWriter fw = null;
+						try {
+							File file = new File("c://java/text.txt");
+							fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")); // 指點編碼格式，以免讀取時中文字符異常
+							fw.append("我寫入的內容");
+							fw.newLine();
+							fw.append("我又寫入的內容");
+							fw.flush(); // clear flash
+						} catch (Exception e) {
+							e.printStackTrace();
+						} finally {
+							if (fw != null) {
+								try {
+									fw.close();
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+						}
+					*/
+		
+		// PCA 6. errorMembership - e	(able single processing)
+				System.out.println("--------------- errorMembership");
+				
+				// Processing
+	/**/		
+				double e = 0;
+				BufferedWriter fer = null;
+				try {  //next line
+	    			File file = new File("c://java/r404 400_700_5_404 - error14.txt");
+					fer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")); // 指點編碼格式，以免讀取時中文字符異常
+				
+					//for (int m = 0; m < vars_e.length; ++m) {
+					for (int j=2; j < munsell1269.length; j++){   // Macbeth 24 : j=25
+						for (int i=0; i < 61; i++){
+							a[i] = vars_mu1269[j][i]; // Note. Sample set change
+						}
+						y = cPCA.errorMembership(a);
+						vars_e[0][j] = y;
+						
+						e = vars_e[0][j];
+						String e2 = String.valueOf(e);
+						fer.append(e2);
+						fer.append(" ");
+					}
+					//}
+					fer.flush(); // clear flash
+					System.out.println("Error Value File output finished!");
+					
+				} catch (Exception er) {
+					er.printStackTrace();
+				} finally {
+					if (fer != null) {
+						try {
+							fer.close();
+						} catch (IOException er) {
+							er.printStackTrace();
+						}
+					}
+				}
+				
+			
+				// test 
+				/*
+					for (int i=2; i < vars_e.length; i++){
+						System.out.println(vars_e[1][i]); // 0: total, 1: lambda, 2: Macbeth 1
+						// output text
+					}
+				*/
+				
+		// PCA 7. response - w (able single processing)
+				System.out.println("--------------- response");
+				
+				// Processing
+				/*
+				double r = 0;
+				BufferedWriter frp = null;
+				try {
+					File file = new File("c://java/musell 1269 400 700 5 response10.txt");
+					frp = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")); // 指點編碼格式，以免讀取時中文字符異常
+				
+					//for (int m = 0; m < vars_w.length; ++m) {
+					for (int j=2; j < munsell1269.length; j++){   // Macbeth 24 : j=25
+						for (int i=0; i < 61; i++){
+							a[i] = vars_mu1269[j][i]; // Note. Sample set change
+						}
+							y = cPCA.response(a);
+							vars_w[0][j] = y;
+							
+							r = vars_w[0][j];
+							String r2 = String.valueOf(r);
+							frp.append(r2);
+							frp.append(" ");
+					}
+					frp.flush(); // clear flash
+					System.out.println("Response Value File output finished!");
+						
+						// another spetrum data
+					//}
+				} catch (Exception rp) {
+					rp.printStackTrace();
+				} finally {
+					if (frp != null) {
+						try {
+							frp.close();
+						} catch (IOException rp) {
+							rp.printStackTrace();
+						}
+					}
+				}
+				*/
+				
+				// test 
+				/*
+					for (int i=2; i < vars_w.length; i++){
+						System.out.println(vars_w[1][i]); // 0: total, 1: lambda, 2: Macbeth 1
+						// output text
+					}
+				*/
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		
+		
+		
+	}
+	
+    /**
+     * Must be called before any other functions. Declares and sets up internal data structures.
+     *
+     * @param numSamples Number of samples that will be processed.
+     * @param sampleSize Number of elements in each sample.
+     */
+    public void setup( int numSamples , int sampleSize ) {
+        mean = new double[ sampleSize ];
+        A.reshape(numSamples,sampleSize,false);
+        sampleIndex = 0;
+        numComponents = -1;
+    }
+
+    /**
+     * Adds a new sample of the raw data to internal data structure for later processing.  All the samples
+     * must be added before computeBasis is called.
+     *
+     * @param sampleData Sample from original raw data.
+     */
+    public void addSample( double[] sampleData ) {
+        /*
+		System.out.print("A.getNumCols:");
+		System.out.println(A.getNumCols());
+		System.out.print("sampleData.length:");
+		System.out.println(sampleData.length);
+		*/
+		
+		if( A.getNumCols() != sampleData.length )
+            throw new IllegalArgumentException("Unexpected sample size");
+        if( sampleIndex >= A.getNumRows() )
+            throw new IllegalArgumentException("Too many samples");
+
+        for( int i = 0; i < sampleData.length; i++ ) {
+            A.set(sampleIndex,i,sampleData[i]);
+        }
+        sampleIndex++;
+    }
+
+    /**
+     * Computes a basis (the principle components) from the most dominant eigenvectors.
+     *
+     * @param numComponents Number of vectors it will use to describe the data.  Typically much
+     * smaller than the number of elements in the input vector.
+     */
+    public void computeBasis( int numComponents ) {
+        System.out.println("--------------- Processing Information");
+				
+		//System.out.print("-----------------------------numComponents:");
+		System.out.print("numComponents:");
+		System.out.println(numComponents);
+		//System.out.print("-----------------------------A.getNumCols():");
+		System.out.print("getNumCols:");
+		System.out.println(A.getNumCols());
+		//System.out.print("-----------------------------sampleIndex:");
+		System.out.print("sampleIndex:");
+		System.out.println(sampleIndex); //check no.204
+		
+		
+		if( numComponents > A.getNumCols() )
+            throw new IllegalArgumentException("More components requested that the data's length.");
+        if( sampleIndex != A.getNumRows() )
+            throw new IllegalArgumentException("Not all the data has been added");
+        if( numComponents > sampleIndex )
+            throw new IllegalArgumentException("More data needed to compute the desired number of components");
+
+        this.numComponents = numComponents;
+
+        // compute the mean of all the samples
+        for( int i = 0; i < A.getNumRows(); i++ ) {
+            for( int j = 0; j < mean.length; j++ ) {
+                mean[j] += A.get(i,j);
+            }
+        }
+        for( int j = 0; j < mean.length; j++ ) {
+            mean[j] /= A.getNumRows();
+        }
+
+        // subtract the mean from the original data
+        for( int i = 0; i < A.getNumRows(); i++ ) {
+            for( int j = 0; j < mean.length; j++ ) {
+                A.set(i,j,A.get(i,j)-mean[j]);
+            }
+        }
+
+        // Compute SVD and save time by not computing U
+        SingularValueDecomposition<DenseMatrix64F> svd =
+                DecompositionFactory.svd(A.numRows, A.numCols, false, true, false);
+        if( !svd.decompose(A) )
+            throw new RuntimeException("SVD failed");
+
+        V_t = svd.getV(null,true);
+        DenseMatrix64F W = svd.getW(null);
+
+        // Singular values are in an arbitrary order initially
+        SingularOps.descendingOrder(null,false,W,V_t,true);
+
+        // strip off unneeded components and find the basis
+        V_t.reshape(numComponents,mean.length,true);
+    }
+
+    /**
+     * Returns a vector from the PCA's basis.
+     *
+     * @param which Which component's vector is to be returned.
+     * @return Vector from the PCA basis.
+     */
+    public double[] getBasisVector( int which ) {
+        if( which < 0 || which >= numComponents )
+            throw new IllegalArgumentException("Invalid component");
+
+        DenseMatrix64F v = new DenseMatrix64F(1,A.numCols);
+        CommonOps.extract(V_t,which,which+1,0,A.numCols,v,0,0);
+
+        return v.data;
+    }
+
+    /**
+     * Converts a vector from sample space into eigen space.
+     *
+     * @param sampleData Sample space data.
+     * @return Eigen space projection.
+     */
+    public double[] sampleToEigenSpace( double[] sampleData ) {
+        if( sampleData.length != A.getNumCols() )
+            throw new IllegalArgumentException("Unexpected sample length");
+        DenseMatrix64F mean = DenseMatrix64F.wrap(A.getNumCols(),1,this.mean);
+
+        DenseMatrix64F s = new DenseMatrix64F(A.getNumCols(),1,true,sampleData);
+        DenseMatrix64F r = new DenseMatrix64F(numComponents,1);
+
+        CommonOps.sub(s,mean,s);
+
+        CommonOps.mult(V_t,s,r);
+
+        return r.data;
+    }
+
+    /**
+     * Converts a vector from eigen space into sample space.
+     *
+     * @param eigenData Eigen space data.
+     * @return Sample space projection.
+     */
+    public double[] eigenToSampleSpace( double[] eigenData ) {
+        /*
+		System.out.println("eigenData.length");
+		System.out.println(eigenData.length);
+		System.out.println("numComponents");
+		System.out.println(numComponents);
+		*/
+		if( eigenData.length != numComponents )
+            throw new IllegalArgumentException("Unexpected sample length");
+
+        DenseMatrix64F s = new DenseMatrix64F(A.getNumCols(),1);
+        DenseMatrix64F r = DenseMatrix64F.wrap(numComponents,1,eigenData);
+        
+        CommonOps.multTransA(V_t,r,s);
+
+        DenseMatrix64F mean = DenseMatrix64F.wrap(A.getNumCols(),1,this.mean);
+        CommonOps.add(s,mean,s);
+
+        return s.data;
+    }
+
+
+    /**
+     * <p>
+     * The membership error for a sample.  If the error is less than a threshold then
+     * it can be considered a member.  The threshold's value depends on the data set.
+     * </p>
+     * <p>
+     * The error is computed by projecting the sample into eigenspace then projecting
+     * it back into sample space and
+     * </p>
+     * 
+     * @param sampleA The sample whose membership status is being considered.
+     * @return Its membership error.
+     */
+    public double errorMembership( double[] sampleA ) {
+        double[] eig = sampleToEigenSpace(sampleA);
+        double[] reproj = eigenToSampleSpace(eig);
+
+
+        double total = 0;
+        for( int i = 0; i < reproj.length; i++ ) {
+            double d = sampleA[i] - reproj[i];		
+            total += d*d;
+			/*System.out.print("----------------- i：");
+			System.out.println(i);			
+			System.out.print("----------------- reproj[i]：");
+			System.out.println(reproj[i]);
+			System.out.print("----------------- sampleA[i]：");
+			System.out.println(sampleA[i]);*/
+        }
+
+        return Math.sqrt(total);
+    }
+	
+	
+	
+    /**
+     * Computes the dot product of each basis vector against the sample.  Can be used as a measure
+     * for membership in the training sample set.  High values correspond to a better fit.
+     *
+     * @param sample Sample of original data.
+     * @return Higher value indicates it is more likely to be a member of input dataset.
+     */
+    public double response( double[] sample ) {
+        if( sample.length != A.numCols )
+            throw new IllegalArgumentException("Expected input vector to be in sample space");
+
+        DenseMatrix64F dots = new DenseMatrix64F(numComponents,1);
+        DenseMatrix64F s = DenseMatrix64F.wrap(A.numCols,1,sample);
+
+        CommonOps.mult(V_t,s,dots);
+
+        return NormOps.normF(dots);
+    }
+}
